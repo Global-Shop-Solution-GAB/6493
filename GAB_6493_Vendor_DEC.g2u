@@ -1,0 +1,64 @@
+﻿Program.Sub.Preflight.Start
+Program.Sub.Preflight.End
+
+Program.Sub.Main.Start
+'Project was created on the fly to help export the decrypted Bank Account and Federal ID numbers from Vendors in a supplement table file. 
+F.Intrinsic.Control.Try
+
+	V.Local.bExists.declare
+	V.Local.sError.Declare
+	V.Local.sBankAccount.Declare
+	V.Local.sFederalID.Declare
+	V.Local.iCount.Declare
+	V.Local.sMsg.Declare
+	V.Local.sFile.Declare
+	V.Local.sMsg2.Declare
+	
+	V.Local.sMsg.Set("Decrypting and Saving Data")
+	F.Intrinsic.UI.InvokeWaitDialog("Loading Data",V.Local.sMsg)
+	
+	'Check if table exists
+	F.ODBC.Connection!conx.OpenCompanyConnection
+	
+	
+	'Grab the Vendor ID and Encrypted Bank Account 
+	F.Data.DataTable.CreateFromSQL("VENDT","conx","Select Vendor_ID,BANK_ACCT_ENC,'' as BANK_ACCT_DEC, FEDERAL_ID_ENC,'' as FED_ID_DEC from V_VENDOR_ENCRYPT;")
+	'Loop through and decryupt Bank Account/Federal ID and store in table
+	F.Intrinsic.Control.For(v.Local.iCount,0,v.DataTable.VENDT.RowCount--,1)
+		F.Intrinsic.UI.ChangeWaitStatus("Decrypting",v.Local.iCount,0,v.DataTable.VENDT.RowCount--)
+		F.Global.Encryption.Decrypt(V.Datatable.VENDT(v.Local.iCount).BANK_ACCT_ENC!FieldVal,V.local.sBankAccount)
+		F.Data.DataTable.SetValue("VENDT",v.Local.iCount,"BANK_ACCT_DEC",v.Local.sBankAccount.Trim)
+		F.Global.Encryption.Decrypt(V.Datatable.VENDT(v.Local.iCount).FEDERAL_ID_ENC!FieldVal,V.Local.sFederalID)
+		F.Data.DataTable.SetValue("VENDT",v.Local.iCount,"FED_ID_DEC",V.Local.sFederalID.Trim)
+		
+		
+	F.Intrinsic.Control.Next(v.Local.iCount)
+	'Remove encrypted column to make Save to DB easy.
+	F.Data.DataTable.RemoveColumn("VENDT","BANK_ACCT_ENC")
+	F.Data.DataTable.RemoveColumn("VENDT","FEDERAL_ID_ENC")
+
+	'Save Data
+	F.Intrinsic.UI.ChangeWaitStatus("Saving Data....")
+	F.Intrinsic.UI.CloseWaitDialog
+	F.Intrinsic.String.Build("{0}GAB_VENDOR_DEC.csv",V.Caller.LocalGSSTempDir,V.Local.sFile)
+	F.Data.DataTable.SaveToCSV("VENDT",V.Local.sFile,True)
+	
+	F.Intrinsic.String.Build("Processing Complete. File saved here: {0}",V.Local.sFile,V.Local.sMsg2)
+	F.Intrinsic.UI.Msgbox(V.Local.sMsg2,V.Local.sMsg)
+	F.Intrinsic.Task.ShellExec(0,"OPEN",V.Local.sFile,"","",1)
+	
+	F.ODBC.Connection!conx.Close
+
+F.Intrinsic.Control.Catch
+	F.Intrinsic.String.Build("Project: {0}{1}{1}Subroutine: {2}{1}Error Occurred {3} with description {4}{1}{1}GAB Version: {5}",V.Ambient.ScriptPath,V.Ambient.Newline,V.Ambient.CurrentSubroutine,V.Ambient.ErrorNumber,V.Ambient.ErrorDescription,V.Ambient.GABVersion,V.Local.sError)
+	F.Intrinsic.UI.Msgbox(V.Local.sError)
+	F.ODBC.Connection!conx.Close()
+	F.Intrinsic.Control.End
+F.Intrinsic.Control.EndTry
+
+Program.Sub.Main.End
+
+Program.Sub.Comments.Start
+${$5$}$3.0.0.0$}$1
+${$6$}$rrodriguez$}$20210920110331785$}$YnvOFTUOxTrnxbSzMvfBmnrP7dtKqN6ZKEdpzIv886p7CvO0yZhw2125bxkqg3Mpi52erCo14UTaokMsiZR1JA==
+Program.Sub.Comments.End
